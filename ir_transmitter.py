@@ -1,24 +1,42 @@
-from pyIR import loadRemote
+from pyIR import loadRemote, Transmitter, NEC
 
-# Tải lại remote từ file đã lưu
-my_remote = loadRemote('my_remote.txt')
-
-# Giả sử bạn có lớp Transmitter để phát tín hiệu IR
+# Initialize the IR transmitter on GPIO pin 12 (or another pin)
 transmitter = Transmitter(pin=12)
 
-while True:
-    # Nhận tên nút từ người dùng
-    button_name = input("Enter the button name to send (or 'exit' to quit): ").strip()
+# Load the remote configuration from a file
+loaded_remote = loadRemote('my_remote.txt')
+
+# Assuming NEC protocol is used and available in pyIR.py
+nec_protocol = NEC()
+
+def transmitRecordedSignal(button_name):
+    """
+    Transmits the IR signal for a given button name.
+    """
+    button = loaded_remote.identifyButton(loaded_remote.getIntegerCode(button_name))
     
-    if button_name.lower() == 'exit':
-        break
-    
-    # Tìm nút tương ứng với tên được nhập
-    button = next((btn for btn in my_remote.buttons if btn.getNickname() == button_name), None)
-    
-    if button:
-        # Gửi tín hiệu IR tương ứng với nút bấm
-        transmitter.send(button.getIntegerCode())
-        print(f"Sent IR signal for '{button_name}' with code {button.getHex()}.")
+    if button != -1:
+        # Convert the integer code to raw data using NEC protocol
+        rawData = nec_protocol.getRawFromIntegerCode(button.getIntegerCode())
+        transmitter.sendSignal(rawData)
+        print(f"Transmitted signal for button '{button_name}'")
     else:
-        print(f"No button found with the name '{button_name}'. Please try again.")
+        print(f"No button found with the name '{button_name}'")
+
+def main():
+    """
+    Main function to execute the script.
+    """
+    # Prompt the user for the button name
+    button_name = input("Enter the name of the button to transmit: ").strip()
+    
+    if button_name:
+        transmitRecordedSignal(button_name)
+    else:
+        print("No button name entered. Exiting.")
+
+    # Cleanup
+    transmitter.cleanup()
+
+if __name__ == "__main__":
+    main()

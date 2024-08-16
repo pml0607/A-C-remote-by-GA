@@ -108,6 +108,25 @@ class NEC:
         
         return int(str(binary),2)
     
+    def getRawFromIntegerCode(self, integer_code):
+        """
+        Convert an integer code back to raw data for NEC protocol.
+        """
+        binary_string = bin(integer_code)[2:].zfill(32)  # Convert to binary and pad with zeros
+        raw_data = []
+        
+        # Generate raw data based on NEC protocol timing
+        for bit in binary_string:
+            if bit == '1':
+                raw_data.append((1, 560))  # Timing for HIGH (logical 1)
+                raw_data.append((0, 560))  # Timing for LOW
+            else:
+                raw_data.append((1, 560))
+                raw_data.append((0, 1680))  # Timing for LOW (logical 0)
+
+        return raw_data
+
+    
     def getClassName(self):
         return "NEC"
 
@@ -220,4 +239,30 @@ def loadRemote(filename):
     except KeyError:
         print("File Invalid! Not all properties present.")
     
-    
+class Transmitter:
+    """Class to handle sending IR signals via GPIO"""
+
+    def __init__(self, pin):
+        self.pin = pin
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(self.pin, GPIO.OUT)
+        self.pulse_length = 0.0005  # Pulse length in seconds (500 microseconds)
+
+    def sendPulse(self, duration):
+        """Send a pulse of specified duration."""
+        GPIO.output(self.pin, GPIO.HIGH)
+        sleep(duration)
+        GPIO.output(self.pin, GPIO.LOW)
+        sleep(self.pulse_length)  # Wait a bit between pulses
+
+    def sendSignal(self, rawData):
+        """Send the IR signal based on the raw data"""
+        for (typ, tme) in rawData:
+            if typ == 1:  # HIGH
+                self.sendPulse(tme / 1000000.0)  # Convert microseconds to seconds
+            else:  # LOW
+                sleep(tme / 1000000.0)  # Convert microseconds to seconds
+
+    def cleanup(self):
+        """Cleanup GPIO settings"""
+        GPIO.cleanup(self.pin)

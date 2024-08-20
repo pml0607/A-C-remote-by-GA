@@ -31,7 +31,6 @@ def get_sensor_data():
 def webhook():
     req = request.get_json(silent=True, force=True)
     action = req.get('queryResult').get('action')
-    
     if action == 'get_sensor_data':
         try:
             temperature_c = sensor.temperature
@@ -52,4 +51,4 @@ def webhook():
         return jsonify(response)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=4040)

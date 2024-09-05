@@ -1,42 +1,99 @@
-from pyIR import loadRemote, Transmitter, NEC
+import RPi.GPIO as GPIO
+import time
 
-# Initialize the IR transmitter on GPIO pin 12 (or another pin)
-transmitter = Transmitter(pin=12)
+class Transmitter:
+    def __init__(self, pin):
+        self.pin = pin
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.pin, GPIO.OUT)
 
-# Load the remote configuration from a file
-loaded_remote = loadRemote('my_remote.txt')
+    def transmit(self, raw_data):
+        """
+        Truyền dữ liệu IR dưới dạng raw data.
+        
+        :param raw_data: Danh sách các tuple, mỗi tuple chứa (0 hoặc 1, độ dài)
+        """
+        for pulse, length in raw_data:
+            if pulse == 1:
+                self._send_high(length)
+            else:
+                self._send_low(length)
+        self._send_low()  # Đảm bảo tín hiệu kết thúc với mức thấp
 
-# Assuming NEC protocol is used and available in pyIR.py
-nec_protocol = NEC()
+    def _send_high(self, length):
+        """
+        Gửi tín hiệu cao trong một khoảng thời gian nhất định.
 
-def transmitRecordedSignal(button_name):
-    """
-    Transmits the IR signal for a given button name.
-    """
-    button = loaded_remote.identifyButton(loaded_remote.getIntegerCode(button_name))
-    
-    if button != -1:
-        # Convert the integer code to raw data using NEC protocol
-        rawData = nec_protocol.getRawFromIntegerCode(button.getIntegerCode())
-        transmitter.sendSignal(rawData)
-        print(f"Transmitted signal for button '{button_name}'")
-    else:
-        print(f"No button found with the name '{button_name}'")
+        :param length: Thời gian giữ mức cao (số giây)
+        """
+        GPIO.output(self.pin, GPIO.HIGH)
+        time.sleep(length)
 
-def main():
-    """
-    Main function to execute the script.
-    """
-    # Prompt the user for the button name
-    button_name = input("Enter the name of the button to transmit: ").strip()
-    
-    if button_name:
-        transmitRecordedSignal(button_name)
-    else:
-        print("No button name entered. Exiting.")
+    def _send_low(self, length=None):
+        """
+        Gửi tín hiệu thấp trong một khoảng thời gian nhất định (hoặc không).
 
-    # Cleanup
-    transmitter.cleanup()
+        :param length: Thời gian giữ mức thấp (số giây), mặc định là 0.00056 giây
+        """
+        if length is None:
+            length = 0.00056  # Thay đổi nếu cần
+        GPIO.output(self.pin, GPIO.LOW)
+        time.sleep(length)
 
+    def cleanup(self):
+        GPIO.cleanup()
+
+# Ví dụ sử dụng
 if __name__ == "__main__":
-    main()
+    pin = 8  # Chân GPIO để điều khiển IR LED
+    transmitter = Transmitter(pin)
+    try:
+        # Raw data bạn đã cung cấp
+        raw_data = [
+            (0, 8976), (1, 4422), (0, 590), (1, 1674), (0, 570), (1, 1652), (0, 595), (1, 532),
+            (0, 569), (1, 533), (0, 570), (1, 539), (0, 572), (1, 541), (0, 568), (1, 545),
+            (0, 573), (1, 1681), (0, 547), (1, 548), (0, 569), (1, 1650), (0, 576), (1, 1683),
+            (0, 565), (1, 562), (0, 545), (1, 563), (0, 544), (1, 567), (0, 570), (1, 546),
+            (0, 569), (1, 533), (0, 545), (1, 1700), (0, 547), (1, 1675), (0, 571), (1, 1681),
+            (0, 571), (1, 562), (0, 542), (1, 566), (0, 543), (1, 568), (0, 542), (1, 573),
+            (0, 544), (1, 560), (0, 543), (1, 550), (0, 544), (1, 1675), (0, 574), (1, 559),
+            (0, 542), (1, 561), (0, 544), (1, 1686), (0, 572), (1, 568), (0, 544), (1, 1692),
+            (0, 572), (1, 1682), (0, 572), (1, 552), (0, 544), (1, 554), (0, 543), (1, 558),
+            (0, 541), (1, 564), (0, 541), (1, 566), (0, 542), (1, 570), (0, 543), (1, 573),
+            (0, 542), (1, 560), (0, 542), (1, 553), (0, 520), (1, 579), (0, 541), (1, 559),
+            (0, 542), (1, 563), (0, 543), (1, 565), (0, 545), (1, 567), (0, 544), (1, 571),
+            (0, 544), (1, 547), (0, 544), (1, 7976), (0, 574), (1, 521), (0, 574), (1, 523),
+            (0, 574), (1, 524), (0, 577), (1, 527), (0, 581), (1, 528), (0, 580), (1, 532),
+            (0, 580), (1, 534), (0, 582), (1, 1676), (0, 576), (1, 515), (0, 570), (1, 528),
+            (0, 563), (1, 536), (0, 562), (1, 543), (0, 557), (1, 554), (0, 556), (1, 587),
+            (0, 523), (1, 559), (0, 557), (1, 544), (0, 562), (1, 534), (0, 557), (1, 545),
+            (0, 556), (1, 543), (0, 556), (1, 547), (0, 557), (1, 552), (0, 556), (1, 554),
+            (0, 557), (1, 562), (0, 555), (1, 547), (0, 557), (1, 540), (0, 555), (1, 541),
+            (0, 557), (1, 543), (0, 557), (1, 547), (0, 561), (1, 548), (0, 557), (1, 554),
+            (0, 560), (1, 557), (0, 555), (1, 548), (0, 556), (1, 537), (0, 557), (1, 543),
+            (0, 554), (1, 546), (0, 553), (1, 552), (0, 554), (1, 555), (0, 555), (1, 557),
+            (0, 553), (1, 561), (0, 555), (1, 550), (0, 552), (1, 541), (0, 553), (1, 545),
+            (0, 553), (1, 553), (0, 548), (1, 553), (0, 527), (1, 581), (0, 528), (1, 583),
+            (0, 525), (1, 591), (0, 498), (1, 605), (0, 497), (1, 597), (0, 500), (1, 598),
+            (0, 499), (1, 603), (0, 500), (1, 606), (0, 522), (1, 584), (0, 526), (1, 589),
+            (0, 523), (1, 590), (0, 497), (1, 606), (0, 497), (1, 1750), (0, 496), (1, 600),
+            (0, 498), (1, 1755), (0, 497), (1, 607), (0, 522), (1, 1737), (0, 520), (1, 591),
+            (0, 519), (1, 1747), (0, 520), (1, 573), (0, 516), (1, 8030), (0, 519), (1, 600),
+            (0, 494), (1, 604), (0, 515), (1, 584), (0, 494), (1, 613), (0, 493), (1, 615),
+            (0, 492), (1, 619), (0, 518), (1, 597), (0, 518), (1, 585), (0, 517), (1, 1729),
+            (0, 516), (1, 582), (0, 517), (1, 584), (0, 518), (1, 587), (0, 517), (1, 592),
+            (0, 516), (1, 595), (0, 516), (1, 599), (0, 517), (1, 588), (0, 515), (1, 579),
+            (0, 515), (1, 583), (0, 515), (1, 586), (0, 514), (1, 592), (0, 513), (1, 594),
+            (0, 514), (1, 599), (0, 512), (1, 604), (0, 511), (1, 593), (0, 510), (1, 584),
+            (0, 510), (1, 588), (0, 510), (1, 591), (0, 511), (1, 594), (0, 511), (1, 597),
+            (0, 510), (1, 602), (0, 510), (1, 1756), (0, 510), (1, 594), (0, 510), (1, 584),
+            (0, 511), (1, 586), (0, 511), (1, 591), (0, 511), (1, 1743), (0, 511), (1, 1748),
+            (0, 511), (1, 1752), (0, 510), (1, 606), (0, 509), (1, 595), (0, 511), (1, 582),
+            (0, 511), (1, 587), (0, 510), (1, 592), (0, 511), (1, 593), (0, 511), (1, 598),
+            (0, 511), (1, 602), (0, 508), (1, 606), (0, 511), (1, 594), (0, 508), (1, 1736),
+            (0, 510), (1, 589), (0, 509), (1, 592), (0, 510), (1, 1746), (0, 507), (1, 1750),
+            (0, 510), (1, 1754), (0, 507), (1, 1758), (0, 510), (1, 581), (0, 507)
+        ]
+        transmitter.transmit(raw_data)
+    finally:
+        transmitter.cleanup()

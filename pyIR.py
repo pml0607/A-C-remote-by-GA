@@ -1,24 +1,4 @@
-#---------------------------------------------------------------------#
-# File: https://github.com/Lime-Parallelogram/pyIR/pyIR.py
-# Project: https://github.com/Lime-Parallelogram/pyIR
-# Created Date: Monday, March 7th 2022, 9:15:49 pm
-# Description: A new Object-Oriented approach to an IR Code receiver module
-# Author: Will Hall
-# -----
-# Last Modified: Sun Mar 13 2022
-# Modified By: Will Hall
-# -----
-# HISTORY:
-# Date      	By	Comments
-# ----------	---	---------------------------------------------------------
-# 2022-03-13	WH	Code values for remotes stored as base 10 integers
-# 2022-03-11	WH	Added listen option to identify incoming commands
-# 2022-03-10	WH	Moved remote load outside of remote class and added functionality to load nickname and protocol properties.
-# 2022-03-09	WH	Added load and save function to system
-# 2022-03-07	WH	Added class for NEC protocol and added translation code inside it
-# 2022-03-07	WH	Added Receiver, Remote and button class
-#---------------------------------------------------------------------#
-# Imports Modules
+
 from time import sleep
 import RPi.GPIO as GPIO
 from datetime import datetime
@@ -148,8 +128,8 @@ class Remote:
     def recordButton(self,sensor : Receiver, buttonNickname):
         print("Ready to record data. Press the button on your remote! ")
         rawData = sensor.getRAW()
-        code = self.getIntegerCode(rawData)
-        self.buttons.append(Button(buttonNickname,code))
+        
+        self.buttons.append(Button(buttonNickname,rawData))
 
     # Pint out a table that shows all of the buttons in the current remote
     def displayButtons(self):
@@ -185,7 +165,10 @@ class Remote:
         for button in self.buttons:
             if button.getIntegerCode() == code:
                 return button
-
+    def identifyButtonByName(self, name):
+        for button in self.buttons:
+            if button.getNickname() == name:
+                return button
         return -1
     
 # ========================================= #
@@ -209,7 +192,7 @@ class Button:
         return hex(self.integerCode)
     
     def getData(self): # Get data in format that can be written to data file
-        return ",".join([self.nickname,str(self.integerCode)])
+        return ";".join([self.nickname,str(self.integerCode)])
 
 # ========================================= #
 #^ Create a remote object from an information file ^#
@@ -239,30 +222,22 @@ def loadRemote(filename):
     except KeyError:
         print("File Invalid! Not all properties present.")
     
+    """Class to handle sending IR signals via GPIO."""
 class Transmitter:
-    """Class to handle sending IR signals via GPIO"""
-
+    """Class for transmitting IR signals using the NEC protocol."""
+    
     def __init__(self, pin):
-        self.pin = pin
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(self.pin, GPIO.OUT)
-        self.pulse_length = 0.0005  # Pulse length in seconds (500 microseconds)
-
-    def sendPulse(self, duration):
-        """Send a pulse of specified duration."""
-        GPIO.output(self.pin, GPIO.HIGH)
-        sleep(duration)
-        GPIO.output(self.pin, GPIO.LOW)
-        sleep(self.pulse_length)  # Wait a bit between pulses
-
-    def sendSignal(self, rawData):
-        """Send the IR signal based on the raw data"""
-        for (typ, tme) in rawData:
-            if typ == 1:  # HIGH
-                self.sendPulse(tme / 1000000.0)  # Convert microseconds to seconds
-            else:  # LOW
-                sleep(tme / 1000000.0)  # Convert microseconds to seconds
+        """Initialize the transmitter with the specified GPIO pin."""
+        self.transmitPin = pin
+        GPIO.setup(self.transmitPin, GPIO.OUT)
+    
+    def sendSignal(self, raw_data):
+        """Send an IR signal based on raw NEC data."""
+        for (typ, duration) in raw_data:
+            GPIO.output(self.transmitPin, GPIO.HIGH if typ == 1 else GPIO.LOW)
+            sleep(duration / 1_000_000)  # Convert microseconds to seconds
+        GPIO.output(self.transmitPin, GPIO.LOW)  # Ensure pin is low after transmission
 
     def cleanup(self):
-        """Cleanup GPIO settings"""
-        GPIO.cleanup(self.pin)
+        """Clean up GPIO settings."""
+        GPIO.cleanup()

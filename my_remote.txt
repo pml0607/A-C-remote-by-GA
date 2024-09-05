@@ -1,0 +1,3 @@
+nickname:MyRemote
+protocol:NEC
+buttons:p,16129253451|
